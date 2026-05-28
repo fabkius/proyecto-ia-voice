@@ -71,6 +71,36 @@
     <audio id="audioPlayer" style="display: none;"></audio>
     
     <script src="/static/js/app.js"></script>
+
+<!-- Botón flotante para modo conversación (no modifica tu diseño existente) -->
+<button id="btnModoVoz" style="position: fixed; bottom: 20px; right: 20px; width: 50px; height: 50px; border-radius: 50%; background: #4CAF50; color: white; border: none; cursor: pointer; font-size: 24px; z-index: 9999; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
+    🎤
+</button>
+
+<script src="{{ url_for('static', filename='voice_controller.js') }}"></script>
+<script>
+    let modoVozActivo = false;
+    const btnVoz = document.getElementById('btnModoVoz');
+    
+    btnVoz.addEventListener('click', () => {
+        if (!modoVozActivo) {
+            iniciarConversacionFluida();
+            modoVozActivo = true;
+            btnVoz.style.background = '#f44336';
+            btnVoz.style.transform = 'scale(1.1)';
+        } else {
+            detenerConversacionFluida();
+            modoVozActivo = false;
+            btnVoz.style.background = '#4CAF50';
+            btnVoz.style.transform = 'scale(1)';
+        }
+        
+        setTimeout(() => {
+            btnVoz.style.transform = 'scale(1)';
+        }, 200);
+    });
+</script>
+    
 </body>
 
 
