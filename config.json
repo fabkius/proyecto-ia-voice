@@ -1,0 +1,62 @@
+{
+  "ollama": {
+    "api_url": "http://localhost:11434/api/chat",
+    "model": "gemma3:4b",
+    "temperature": 0.8,
+    "top_p": 0.95,
+    "top_k": 40,
+    "timeout": 60
+  },
+  "whisper": {
+    "language": "Spanish",
+    "model": "base",
+    "sample_rate": 16000,
+    "channels": 1
+  },
+  "piper": {
+    "voices_dir": "/home/fabian/piper_voices",
+    "default_voice": "es_MX-claude-high",
+    "voices": {
+      "es_MX-claude-high": {
+        "name": "Claude - Voz mexicana (alta calidad)",
+        "files": ["es_MX-claude-high.onnx", "es_MX-claude-high.onnx.json"],
+        "urls": {
+          "onnx": "https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_MX/claude/high/es_MX-claude-high.onnx",
+          "json": "https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_MX/claude/high/es_MX-claude-high.onnx.json"
+        }
+      },
+      "es_ES-davefx-medium": {
+        "name": "DaveFX - Voz española (calidad media)",
+        "files": ["es_ES-davefx-medium.onnx", "es_ES-davefx-medium.onnx.json"],
+        "urls": {
+          "onnx": "https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/davefx/medium/es_ES-davefx-medium.onnx",
+          "json": "https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_ES/davefx/medium/es_ES-davefx-medium.onnx.json"
+        }
+      },
+      "es_419-carlos-medium": {
+        "name": "Carlos - Voz latinoamericana (calidad media)",
+        "files": ["es_419-carlos-medium.onnx", "es_419-carlos-medium.onnx.json"],
+        "urls": {
+          "onnx": "https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_419/carlos/medium/es_419-carlos-medium.onnx",
+          "json": "https://huggingface.co/rhasspy/piper-voices/resolve/main/es/es_419/carlos/medium/es_419-carlos-medium.onnx.json"
+        }
+      }
+    }
+  },
+  "audio": {
+    "output_dir": "/home/fabian/Musica",
+    "duration": 5,
+    "sample_rate": 16000,
+    "channels": 1,
+    "ffmpeg_input": "default"
+  },
+  "database": {
+    "path": "/home/fabian/.assistant.db",
+    "max_context_messages": 50,
+    "backup_enabled": true
+  },
+  "system_prompt": "Eres un asistente útil, natural y conversacional. Responde de manera clara y amigable, como en una conversación real. Mantén el contexto de la conversación y refiere a lo dicho anteriormente cuando sea relevante. Usa un tono cálido y natural.",
+  "conversation": {
+    "simple_mode": false
+  }
+}

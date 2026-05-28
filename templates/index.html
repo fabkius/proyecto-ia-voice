@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asistente de Voz con IA</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Barra lateral -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>🎙️ Asistente IA</h2>
+                <button id="newSessionBtn" class="btn-new">+ Nueva conversación</button>
+            </div>
+            
+            <div class="sessions-list">
+                <h3>Conversaciones</h3>
+                <div id="sessionsContainer"></div>
+            </div>
+            
+            <div class="sidebar-footer">
+                <div class="voice-selector">
+                    <label>🎤 Voz del asistente</label>
+                    <select id="voiceSelect"></select>
+                </div>
+                <button id="backupBtn" class="btn-secondary">💾 Respaldar</button>
+            </div>
+        </aside>
+        
+        <!-- Área principal -->
+        <main class="main-content">
+            <div class="chat-header">
+                <h1 id="sessionTitle">Asistente de Voz</h1>
+                <div class="status">
+                    <span class="status-dot"></span>
+                    <span id="statusText">Listo</span>
+                </div>
+            </div>
+            
+            <div class="chat-messages" id="chatMessages">
+                <div class="welcome-message">
+                    <div class="message assistant">
+                        <div class="message-content">
+                            👋 ¡Hola! Soy tu asistente de voz. Puedes hablar o escribir tu pregunta.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chat-input-area">
+                <div class="input-controls">
+                    <button id="voiceInputBtn" class="btn-voice">
+                        🎤
+                    </button>
+                    <textarea id="textInput" placeholder="Escribe tu mensaje aquí..." rows="3"></textarea>
+                    <button id="sendBtn" class="btn-send">
+                        📤 Enviar
+                    </button>
+                </div>
+                <div class="recording-indicator" id="recordingIndicator" style="display: none;">
+                    <span class="recording-pulse"></span>
+                    Grabando... Di algo
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <audio id="audioPlayer" style="display: none;"></audio>
+    
+    <script src="/static/js/app.js"></script>
+</body>
+
+<!-- Botón flotante para activar voz -->
+<button id="voiceBtn" style="position: fixed; bottom: 20px; right: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 50px; padding: 15px 25px; cursor: pointer; z-index: 1000; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
+    🎤 Activar Voz
+</button>
+
+<div id="voiceModal" style="display: none; position: fixed; bottom: 100px; right: 20px; width: 350px; background: white; border-radius: 15px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); z-index: 1001; overflow: hidden;">
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px;">
+        <strong>🎙️ Control por Voz</strong>
+        <button id="closeVoice" style="float: right; background: none; border: none; color: white; cursor: pointer;">✕</button>
+    </div>
+    <div style="padding: 15px;">
+        <div id="voiceStatus" style="text-align: center; padding: 10px;">
+            <div id="voiceLed" style="width: 20px; height: 20px; border-radius: 50%; background: #ccc; margin: 0 auto 10px;"></div>
+            <span id="voiceText">Inactivo</span>
+        </div>
+        <div id="voiceMessages" style="height: 200px; overflow-y: auto; font-size: 0.9rem; margin: 10px 0;"></div>
+        <button id="toggleVoice" style="width: 100%; padding: 10px; background: #667eea; color: white; border: none; border-radius: 8px; cursor: pointer;">▶️ Iniciar</button>
+    </div>
+</div>
+
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+<script>
+// Script para el control por voz
+let socket = null;
+let mediaRecorder = null;
+let isListening = false;
+let audioChunks = [];
+
+const voiceBtn = document.getElementById('voiceBtn');
+const voiceModal = document.getElementById('voiceModal');
+const closeVoice = document.getElementById('closeVoice');
+const toggleVoice = document.getElementById('toggleVoice');
+const voiceLed = document.getElementById('voiceLed');
+const voiceText = document.getElementById('voiceText');
+const voiceMessages = document.getElementById('voiceMessages');
+
+voiceBtn.onclick = () => {
+    voiceModal.style.display = voiceModal.style.display === 'none' ? 'block' : 'none';
+    if (!socket && voiceModal.style.display === 'block') {
+        connectSocket();
+    }
+};
+
+closeVoice.onclick = () => voiceModal.style.display = 'none';
+
+function connectSocket() {
+    socket = io();
+    
+    socket.on('connect', () => {
+        addVoiceMessage('✅ Conectado al servidor de voz');
+    });
+    
+    socket.on('transcripcion', (data) => {
+        addVoiceMessage(`🗣️ Tú: ${data.texto}`);
+    });
+    
+    socket.on('respuesta_voz', (data) => {
+        addVoiceMessage(`🤖 Asistente: ${data.texto}`);
+        speakResponse(data.texto);
+    });
+    
+    socket.on('estado', (data) => {
+        voiceText.innerText = data.mensaje;
+        voiceLed.style.background = data.escuchando ? '#00ff00' : '#ccc';
+        if (data.escuchando) {
+            voiceLed.style.animation = 'pulse 1s infinite';
+        } else {
+            voiceLed.style.animation = 'none';
+        }
+    });
+}
+
+async function startVoice() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        
+        mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+                audioChunks.push(event.data);
+            }
+        };
+        
+        mediaRecorder.onstop = () => {
+            if (audioChunks.length > 0) {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                sendAudioToServer(audioBlob);
+                audioChunks = [];
+            }
+        };
+        
+        let silenceTimeout;
+        let isSpeaking = false;
+        let lastSoundTime = Date.now();
+        
+        // Analizar volumen para detectar cuando hablas
+        const audioContext = new AudioContext();
+        const source = audioContext.createMediaStreamSource(stream);
+        const processor = audioContext.createScriptProcessor(2048, 1, 1);
+        
+        source.connect(processor);
+        processor.connect(audioContext.destination);
+        
+        processor.onaudioprocess = (event) => {
+            if (!isListening) return;
+            
+            const inputBuffer = event.inputBuffer.getChannelData(0);
+            let volume = 0;
+            for (let i = 0; i < inputBuffer.length; i++) {
+                volume += Math.abs(inputBuffer[i]);
+            }
+            volume = volume / inputBuffer.length;
+            
+            if (volume > 0.02) {
+                lastSoundTime = Date.now();
+                if (!isSpeaking) {
+                    isSpeaking = true;
+                    mediaRecorder.start(100);
+                    voiceLed.style.background = '#ff4444';
+                }
+            } else if (isSpeaking && (Date.now() - lastSoundTime) > 1500) {
+                isSpeaking = false;
+                mediaRecorder.stop();
+                voiceLed.style.background = '#00ff00';
+            }
+        };
+        
+        isListening = true;
+        socket.emit('start_conversacion');
+        toggleVoice.innerText = '⏹️ Detener';
+        addVoiceMessage('🎤 Escuchando... Habla libremente');
+        
+    } catch (error) {
+        console.error('Error:', error);
+        addVoiceMessage('❌ Error al acceder al micrófono');
+    }
+}
+
+function stopVoice() {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+    }
+    isListening = false;
+    socket.emit('stop_conversacion');
+    toggleVoice.innerText = '▶️ Iniciar';
+    addVoiceMessage('🔇 Escucha detenida');
+}
+
+function sendAudioToServer(audioBlob) {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+        const base64Audio = reader.result.split(',')[1];
+        socket.emit('audio_chunk', { audio: base64Audio });
+    };
+    reader.readAsDataURL(audioBlob);
+}
+
+function speakResponse(text) {
+    if ('speechSynthesis' in window) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'es-ES';
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+    }
+}
+
+function addVoiceMessage(msg) {
+    const div = document.createElement('div');
+    div.style.padding = '5px';
+    div.style.borderBottom = '1px solid #eee';
+    div.style.fontSize = '0.85rem';
+    div.innerText = msg;
+    voiceMessages.appendChild(div);
+    voiceMessages.scrollTop = voiceMessages.scrollHeight;
+    setTimeout(() => {
+        if (voiceMessages.children.length > 20) {
+            voiceMessages.removeChild(voiceMessages.children[0]);
+        }
+    }, 100);
+}
+
+toggleVoice.onclick = () => {
+    if (!isListening) {
+        startVoice();
+    } else {
+        stopVoice();
+    }
+};
+
+// Agregar animación CSS
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.5; transform: scale(1.1); }
+    }
+`;
+document.head.appendChild(style);
+</script>
+
+</html>
