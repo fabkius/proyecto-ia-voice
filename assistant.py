@@ -523,6 +523,29 @@ def interactive_conversation():
             print(f"\n❌ Error: {e}")
             print("Continuando...\n")
 
+# ============ AGREGA ESTA FUNCIÓN SI NO EXISTE ============
+
+def transcribir_audio(ruta_audio):
+    """
+    Transcribe un archivo de audio usando Whisper
+    
+    Args:
+        ruta_audio (str): Ruta al archivo de audio
+    
+    Returns:
+        str: Texto transcrito
+    """
+    import whisper
+    
+    # Cargar modelo (puedes ajustar el tamaño)
+    model = whisper.load_model("base")
+    
+    # Transcribir
+    result = model.transcribe(ruta_audio, language="es")
+    
+    return result["text"]
+            
+
 # Punto de entrada principal
 if __name__ == "__main__":
     # Verificar que los modelos de voz existen

@@ -409,5 +409,118 @@
         // seguridad extra para evitar dobles inicializaciones
     })();
 </script>
+
+<script>
+    // ============ CÓDIGO EXISTENTE ============
+    // (Mantén todo tu código JavaScript actual)
+    
+    // ============ NUEVO CÓDIGO PARA LLAMADA ============
+    let llamadaActiva = false;
+    let intervaloEscucha = null;
+    let mediaRecorderGlobal = null;
+    let streamGlobal = null;
+    
+    // Event listeners para los nuevos botones
+    document.getElementById('llamadaBtn').addEventListener('click', iniciarLlamada);
+    document.getElementById('detenerLlamadaBtn').addEventListener('click', detenerLlamada);
+    
+    async function iniciarLlamada() {
+        llamadaActiva = true;
+        document.getElementById('llamadaBtn').style.display = 'none';
+        document.getElementById('detenerLlamadaBtn').style.display = 'inline-block';
+        document.getElementById('estadoLlamada').style.display = 'block';
+        
+        agregarMensaje("IA", "🟢 Llamada iniciada. Puedes hablar, te escucharé automáticamente.");
+        
+        // Iniciar escucha periódica
+        intervaloEscucha = setInterval(escucharYResponder, 4000);
+    }
+    
+    function detenerLlamada() {
+        llamadaActiva = false;
+        if (intervaloEscucha) clearInterval(intervaloEscucha);
+        
+        if (mediaRecorderGlobal && mediaRecorderGlobal.state === 'recording') {
+            mediaRecorderGlobal.stop();
+        }
+        if (streamGlobal) {
+            streamGlobal.getTracks().forEach(track => track.stop());
+        }
+        
+        document.getElementById('llamadaBtn').style.display = 'inline-block';
+        document.getElementById('detenerLlamadaBtn').style.display = 'none';
+        document.getElementById('estadoLlamada').style.display = 'none';
+        
+        agregarMensaje("IA", "🔴 Llamada finalizada.");
+    }
+    
+    async function escucharYResponder() {
+        if (!llamadaActiva) return;
+        
+        try {
+            // Grabar audio por 3 segundos
+            const audioBlob = await grabarAudioSimple(3000);
+            
+            if (audioBlob) {
+                // Transcribir
+                const formData = new FormData();
+                formData.append('audio', audioBlob, 'audio.wav');
+                
+                const transcripcionResp = await fetch('/transcribir', {
+                    method: 'POST',
+                    body: formData
+                });
+                const transcripcionData = await transcripcionResp.json();
+                const texto = transcripcionData.texto;
+                
+                if (texto && texto.trim().length > 0 && texto !== "No se detectó voz") {
+                    agregarMensaje("Tú", texto);
+                    
+                    // Obtener respuesta de IA
+                    const respuestaResp = await fetch('/preguntar', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({pregunta: texto})
+                    });
+                    const respuestaData = await respuestaResp.json();
+                    
+                    agregarMensaje("IA", respuestaData.respuesta);
+                    
+                    // Opcional: Text-to-Speech
+                    if ('speechSynthesis' in window) {
+                        const utterance = new SpeechSynthesisUtterance(respuestaData.respuesta);
+                        utterance.lang = 'es-ES';
+                        speechSynthesis.speak(utterance);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error en llamada:', error);
+        }
+    }
+    
+    async function grabarAudioSimple(duracionMs) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        streamGlobal = stream;
+        
+        const mediaRecorder = new MediaRecorder(stream);
+        mediaRecorderGlobal = mediaRecorder;
+        const chunks = [];
+        
+        mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+        mediaRecorder.start();
+        
+        await new Promise(resolve => setTimeout(resolve, duracionMs));
+        mediaRecorder.stop();
+        
+        return new Promise((resolve) => {
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(chunks, { type: 'audio/webm' });
+                resolve(blob);
+            };
+        });
+    }
+</script>
+
 </body>
 </html>

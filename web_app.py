@@ -288,6 +288,57 @@ def handle_disconnect():
     """Manejar desconexión WebSocket"""
     print('Cliente desconectado')
 
+# ============ CÓDIGO EXISTENTE ============
+# (Mantén todas tus rutas actuales como @app.route('/'), etc.)
+
+# ============ AGREGA ESTAS MEJORAS ============
+
+@app.route('/transcribir', methods=['POST'])
+def transcribir():
+    """Endpoint específico para transcribir audio en el modo llamada"""
+    try:
+        if 'audio' not in request.files:
+            return jsonify({'error': 'No audio file'}), 400
+        
+        audio_file = request.files['audio']
+        
+        # Guardar temporalmente
+        temp_path = "temp_llamada.wav"
+        audio_file.save(temp_path)
+        
+        # Usar tu servicio whisper existente
+        from whisper_service import transcribir_audio
+        texto = transcribir_audio(temp_path)
+        
+        # Limpiar
+        import os
+        os.remove(temp_path)
+        
+        return jsonify({'texto': texto})
+    
+    except Exception as e:
+        return jsonify({'texto': 'Error al transcribir', 'error': str(e)}), 500
+
+@app.route('/preguntar', methods=['POST'])
+def preguntar():
+    """Endpoint para hacer preguntas a la IA (modo llamada)"""
+    try:
+        data = request.json
+        pregunta = data.get('pregunta', '')
+        
+        # Usar tu assistant existente
+        from assistant import obtener_respuesta
+        respuesta = obtener_respuesta(pregunta)
+        
+        # Guardar en base de datos
+        from database import guardar_conversacion
+        guardar_conversacion(pregunta, respuesta)
+        
+        return jsonify({'respuesta': respuesta})
+    
+    except Exception as e:
+        return jsonify({'respuesta': 'Lo siento, hubo un error', 'error': str(e)}), 500    
+
 if __name__ == '__main__':
     print("="*60)
     print("🌐 INICIANDO SERVIDOR WEB")
